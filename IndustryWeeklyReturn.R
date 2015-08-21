@@ -1,8 +1,10 @@
 
 library("dplyr", lib.loc="~/R/win-library/3.1")
 library("lubridate", lib.loc="~/R/win-library/3.1")
+library("reshape2", lib.loc="~/R/win-library/3.1")
+library("ggplot2", lib.loc="~/R/win-library/3.1")
 library("RSQLServer")
-
+source('D:/working/R/MyFunction.R')
 nIndexCode <- 4982
 startdate <- as.Date("2007-01-15")
 enddate <- as.Date("2015-8-14")
@@ -63,10 +65,27 @@ for(i in c(1:nrow(trading_date))){
     group_by(IndustryNameNew, UnSespendedFloatMarketCap) %>% 
     summarise(IndustryReturn = weighted.mean(StockReturn, FloatMarketCap),
               SespendedFloatMarketCap = sum(FloatMarketCap)) %>%
-    ungroup() 
+    ungroup() %>% 
+    mutate(TradingDay = start)
   
   industry_weekly_return <- rbind(industry_weekly_return, industry_return_temp)
 }
 
 save(industry_weekly_return, file = "IndustryWeeklyReturn.RData")  
   
+
+#############################################################################################
+industry_weekly_return_summary <- industry_weekly_return %>% 
+  select(IndustryNameNew, IndustryReturn) %>%
+  group_by(IndustryNameNew) %>% 
+  summarise(Max = max(IndustryReturn), Min = min(IndustryReturn), 
+            Mean = mean(IndustryReturn), SD = sd(IndustryReturn), 
+            YearlyReturn = YearlyReturn(IndustryReturn, 52),
+            YearlySD = YearlySD(IndustryReturn, 52), YearlyIR = YearlyIR(IndustryReturn, 52))
+
+industry_corralation <- industry_weekly_return %>%
+  group_by(TradingDay) %>%
+  mutate(ReturnMinusMean = IndustryReturn - mean(IndustryReturn)) %>%
+  dcast(TradingDay ~ IndustryNameNew, value.var = "ReturnMinusMean") 
+industry_corralation <- as.data.frame(cor(industry_corralation[, -1], use = "na.or.complete"))
+
