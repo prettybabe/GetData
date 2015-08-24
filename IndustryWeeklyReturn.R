@@ -49,25 +49,19 @@ for(i in c(1:nrow(trading_date))){
                 filter(IndexInnerCode == nIndexCode, start >= InDate & start < OutDate),
               by = c("InnerCode" = "SecuInnerCode"))
   
-  stock_return_temp <- temp %>%
+  industry_return_temp <- temp %>%
+    filter(IfSuspended == 0) %>%
     inner_join(data$ReturnDaily %>% 
-                 filter(TradingDay > start,  TradingDay <= end) %>%
+                 filter(TradingDay > start & TradingDay <= end) %>%
                  select(InnerCode, DailyReturn), by = "InnerCode") %>% 
     group_by(InnerCode, FloatMarketCap, IndustryNameNew) %>% 
     summarise(StockReturn = expm1(sum(log1p(DailyReturn.y)))) %>%
-    ungroup()
-  
-  industry_return_temp <- stock_return_temp %>%
-    group_by(IndustryNameNew) %>%
-    summarise(UnSespendedFloatMarketCap = sum(FloatMarketCap)) %>% 
-    inner_join(stock_return_temp %>% semi_join(temp %>% filter(IfSuspended == 0), by = "InnerCode"),
-               by = "IndustryNameNew") %>%
-    group_by(IndustryNameNew, UnSespendedFloatMarketCap) %>% 
+    group_by(IndustryNameNew) %>% 
     summarise(IndustryReturn = weighted.mean(StockReturn, FloatMarketCap),
-              SespendedFloatMarketCap = sum(FloatMarketCap)) %>%
+              FloatMarketCap = sum(FloatMarketCap)) %>%
     ungroup() %>% 
     mutate(TradingDay = start)
-  
+    
   industry_weekly_return <- rbind(industry_weekly_return, industry_return_temp)
 }
 
